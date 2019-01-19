@@ -9,8 +9,11 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <limits.h>
 
 #include "tokenizer.h"
+#include "helpers.h"
 
 /* Convenience macro to silence compiler warnings about unused function parameters. */
 #define unused __attribute__((unused))
@@ -29,6 +32,8 @@ pid_t shell_pgid;
 
 int cmd_exit(struct tokens *tokens);
 int cmd_help(struct tokens *tokens);
+int cmd_pwd(struct tokens *tokens);
+int cmd_cd(struct tokens *tokens);
 
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
@@ -43,6 +48,8 @@ typedef struct fun_desc {
 fun_desc_t cmd_table[] = {
   {cmd_help, "?", "show this help menu"},
   {cmd_exit, "exit", "exit the command shell"},
+  {cmd_pwd, "pwd", "print current working directory"},
+  {cmd_cd, "cd", "change directory to the specified path"}
 };
 
 /* Prints a helpful description for the given command */
@@ -55,6 +62,36 @@ int cmd_help(unused struct tokens *tokens) {
 /* Exits this shell */
 int cmd_exit(unused struct tokens *tokens) {
   exit(0);
+}
+
+int cmd_pwd(unused struct tokens *tokens) {
+  // TODO: Allow users to use '~' as an alias for HOME dir
+  char buf[PATH_MAX];
+  if (getcwd(buf, sizeof(buf))) {
+    printf("%s\n", buf);
+  } else {
+    perror("Could not retrieve current working directory.");
+    return 0;
+  }
+  return 1;
+}
+
+int cmd_cd(struct tokens *tokens) {
+  // TODO: Allow users to use '~' as an alias for HOME dir
+  if (!tokens) {
+    return 0;
+  }
+  size_t len = tokens_get_length(tokens);
+  char *path = getenv("HOME");
+  if (len > 1) {
+    path = tokens_get_token(tokens, 1);
+  }
+  if (chdir(path) != 0) {
+    perror("Could not change directory");
+    return 0;
+  }
+  cmd_pwd(tokens);
+  return 1;
 }
 
 /* Looks up the built-in command, if it exists. */
@@ -112,6 +149,14 @@ int main(unused int argc, unused char *argv[]) {
       cmd_table[fundex].fun(tokens);
     } else {
       /* REPLACE this to run commands as programs. */
+      if (tokens_get_length(tokens) % 2 == 1) {
+        // a valid number of parameters for I/O redirect
+        if (strcmp(tokens_get_token(tokens, 1), "<") == 0) {
+          printf("Redirect input\n");
+        } else if (strcmp(tokens_get_token(tokens, 1), ">") == 0) {
+          printf("Redirect output\n");
+        }
+      }
       fprintf(stdout, "This shell doesn't know how to run programs.\n");
     }
 
