@@ -14,6 +14,7 @@
 
 #include "tokenizer.h"
 #include "helpers.h"
+#include "application_runner.h"
 
 /* Convenience macro to silence compiler warnings about unused function parameters. */
 #define unused __attribute__((unused))
@@ -148,18 +149,15 @@ int main(unused int argc, unused char *argv[]) {
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
-      /* REPLACE this to run commands as programs. */
-      if (tokens_get_length(tokens) % 2 == 1) {
-        // a valid number of parameters for I/O redirect
-        if (strcmp(tokens_get_token(tokens, 1), "<") == 0) {
-          printf("Redirect input\n");
-        } else if (strcmp(tokens_get_token(tokens, 1), ">") == 0) {
-          printf("Redirect output\n");
+      size_t length = tokens_get_length(tokens);
+      // Run commands as programs
+      if (length > 0) {
+        char **args = tokens_get_all(tokens);
+        if (args) {
+          execute_cmd((uint16_t)length, args);
         }
       }
-      fprintf(stdout, "This shell doesn't know how to run programs.\n");
     }
-
     if (shell_is_interactive)
       /* Please only print shell prompts when standard input is not a tty */
       fprintf(stdout, "%d: ", ++line_num);
