@@ -6,6 +6,18 @@
 #include "application_runner.h"
 #include "helpers.h"
 
+static char** get_argv(uint16_t argc, char** argv) {
+  // The execv requires that the array of pointers is terminated by a null pointer
+  char** result = malloc(argc + 1);
+  if (result) {
+    result[argc] = NULL;
+    for (uint16_t i = 0; i < argc; i++) {
+      result[i] = argv[i];
+    }
+  }
+  return result;
+}
+
 int execute_cmd(uint16_t argc, char** argv) {
   pid_t pid = fork();
   if (pid == 0) {
@@ -16,14 +28,11 @@ int execute_cmd(uint16_t argc, char** argv) {
       // replace file name with file path
       argv[0] = path;
     }
-    int value = execv(argv[0], argv);
-    if (value == -1) {
+    if (execv(argv[0], get_argv(argc, argv))) {
       perror("Command failed");
+      exit(EXIT_FAILURE);
     }
-    if (path) {
-      free(path);
-    }
-    exit(value);
+    exit(EXIT_SUCCESS);
   } else {
     int status;
     waitpid(pid, &status, 0); // no option
