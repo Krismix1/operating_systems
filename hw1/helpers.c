@@ -1,64 +1,70 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <unistd.h>
 
 #include "helpers.h"
 
+const char* HOME_DIRECTORY_ALIAS = "~";
 
-// char** str_split(char* str, const char delim) {
-//   return strtok(str, &delim);
-// }
 
-char** str_split(char* a_str, const char a_delim) {
-  char** result    = 0;
-  size_t count     = 0;
-  char* tmp        = a_str;
-  char* last_delim = 0;
-  char delim[2];
-  delim[0] = a_delim;
-  delim[1] = 0;
-  /* Count how many elements will be extracted. */
-  while (*tmp) {
-    if (a_delim == *tmp) {
+char** str_split(char* str, const char delim, int *size) {
+  if (str == NULL) {
+    *size = 0;
+    return NULL;
+  }
+  size_t count = 0; // we need to know how much memory to allocate
+  for (size_t i = 0; i < strlen(str); i++) {
+    if (str[i] == delim) {
       ++count;
-      last_delim = tmp;
     }
-    ++tmp;
   }
-  /* Add space for trailing token. */
-  count += last_delim < (a_str + strlen(a_str) - 1);
-  /* Add space for terminating null string so caller
-     knows where the list of returned strings ends. */
-  ++count;
-
-  result = malloc(sizeof(char*) * count);
-  if (result) {
-    size_t idx  = 0;
-    char* token = strtok(a_str, delim);
-
-    while (token) {
-      assert(idx < count);
-      *(result + idx++) = strdup(token);
-      token = strtok(0, delim);
+  ++count; // add 1 because of the fence-post problem
+  char **tokens = malloc(count * sizeof(char*));
+  if (tokens) {
+    size_t index = 0;
+    char *token = strtok(str, &delim);
+    while (token != NULL) {
+      tokens[sizeof(char*) * index++] = token;
+      token = strtok(NULL, &delim);
     }
-    assert(idx == count - 1);
-    *(result + idx) = 0;
+    *size = count;
   }
-
-  return result;
+  return tokens;
 }
 
-int lookup_path(char* cmd) {
-  char *paths_src = getenv("PATH");
-  char paths_cp[strlen(paths_src)];
-  strcpy(paths_cp, paths_src);
-  char **paths = str_split(paths_cp, ':');
-
-  for (size_t i = 0; i < 6; i++) {
-    printf("%s\n", paths[i]);
+char* lookup_path(char* cmd) {
+  if (cmd == NULL) {
+    return NULL;
   }
-  return 1;
+  // we should not modify the string of PATH
+  // because that would change the environment of the process
+  char *paths_env = strdup(getenv("PATH"));
+  if (paths_env == NULL) {
+    return cmd;
+  }
+
+  int length = 0;
+  char **paths = str_split(paths_env, ':', &length);
+  free(paths_env);
+  if (paths == NULL) {
+    return NULL;
+  }
+
+  unsigned long size = strlen(cmd);
+  for (size_t i = 0; i < length; i++) {
+    char *path = paths[i * sizeof(char*)];
+    char buff[strlen(path) + size + 1]; // for extra '/'
+    strcpy(buff, path);
+    strcat(buff, "/");
+    strcat(buff, (const char*)cmd);
+    if (access(buff, F_OK) != -1) {
+      free(paths);
+      return strdup(buff);
+    }
+  }
+  free(paths);
+  return NULL;
 }
 
 char* replace_home(char* cmd) {
