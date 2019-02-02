@@ -1,8 +1,8 @@
-SRCS=shell.c tokenizer.c application_runner.c
+SRCS=shell.c tokenizer.c helpers.c application_runner.c
 EXECUTABLES=shell
 
 CC=gcc
-CFLAGS=-g -Wall -std=gnu99
+CFLAGS=-g -Wall -std=gnu99 -O0
 LDFLAGS=
 
 OBJS=$(SRCS:.c=.o)
