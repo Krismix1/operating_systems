@@ -66,7 +66,6 @@ int cmd_exit(unused struct tokens *tokens) {
 }
 
 int cmd_pwd(unused struct tokens *tokens) {
-  // TODO: Allow users to use '~' as an alias for HOME dir
   char buf[PATH_MAX];
   if (getcwd(buf, sizeof(buf))) {
     printf("%s\n", buf);
@@ -78,20 +77,30 @@ int cmd_pwd(unused struct tokens *tokens) {
 }
 
 int cmd_cd(struct tokens *tokens) {
-  // TODO: Allow users to use '~' as an alias for HOME dir
   if (!tokens) {
     return 0;
   }
-  size_t len = tokens_get_length(tokens);
-  char *path = getenv("HOME");
-  if (len > 1) {
-    path = tokens_get_token(tokens, 1);
+
+  // Allow command `cd` (without any args) to cd into $HOME
+  char *path = strdup(getenv("HOME"));
+  if (tokens_get_length(tokens) > 1) {
+    char* new_path = replace_home(tokens_get_token(tokens, 1));
+    if (new_path != NULL) {
+      free(path);
+      path = new_path;
+    }
   }
   if (chdir(path) != 0) {
     perror("Could not change directory");
+    if (path) {
+      free(path);
+    }
     return 0;
   }
   cmd_pwd(tokens);
+  if (path) {
+    free(path);
+  }
   return 1;
 }
 

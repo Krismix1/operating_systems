@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "application_runner.h"
 #include "helpers.h"
@@ -12,6 +13,7 @@ static char** get_argv(uint16_t argc, char** argv) {
   if (result) {
     result[argc] = NULL;
     for (uint16_t i = 0; i < argc; i++) {
+      // TODO: Replace occurences of '~' in argv[i]
       result[i] = argv[i];
     }
   }
@@ -21,12 +23,14 @@ static char** get_argv(uint16_t argc, char** argv) {
 int execute_cmd(uint16_t argc, char** argv) {
   pid_t pid = fork();
   if (pid == 0) {
-    // TODO: Pre-handle cases where commands start with './' or let lookup_path deal with them?
-    // So we don't search knowing we would fail?
-    char *path = lookup_path(argv[0]);
-    if (path) {
-      // replace file name with file path
-      argv[0] = path;
+    // Pre-handle cases where commands start with './'
+    // So we don't search knowing we would fail
+    if (strcmp(str_substr(argv[0], 0, 1), "./") != 0) {
+      char *path = lookup_path(argv[0]);
+      if (path) {
+        // replace file name with file path
+        argv[0] = path;
+      }
     }
     if (execv(argv[0], get_argv(argc, argv))) {
       perror("Command failed");
